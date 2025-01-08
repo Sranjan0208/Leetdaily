@@ -1,10 +1,11 @@
 "use client";
 import { Code2, Home } from "lucide-react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 
 export function Navbar() {
   const pathname = usePathname();
+  const navigate = useRouter();
 
   return (
     <nav className="bg-gradient-to-r from-gray-900 to-black shadow-lg">

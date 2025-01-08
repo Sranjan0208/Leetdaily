@@ -16,9 +16,10 @@ const Dashboard: React.FC = () => {
     const fetchProblems = async () => {
       try {
         const response = await axios.get<{ dailyQuestions: Problem[] }>(
-          "http://localhost:5000/api/questions/daily-questions",
+          "http://localhost:3000/api/questions/daily-questions",
         );
         setProblems(response.data.dailyQuestions);
+        console.log(response.data);
         setLoading(false);
       } catch (err) {
         console.error("Error fetching problems:", err);
@@ -30,9 +31,9 @@ const Dashboard: React.FC = () => {
   const refreshQuestions = async () => {
     setRefreshing(true);
     try {
-      await axios.post("http://localhost:5000/api/questions/refresh");
+      await axios.post("http://localhost:3000/api/questions/refresh");
       const response = await axios.get<{ dailyQuestions: Problem[] }>(
-        "http://localhost:5000/api/questions/daily-questions",
+        "http://localhost:3000/api/questions/daily-questions",
       );
       setProblems(response.data.dailyQuestions);
     } catch (err) {
@@ -44,7 +45,7 @@ const Dashboard: React.FC = () => {
 
   const toggleStar = async (id: string) => {
     try {
-      await axios.post(`http://localhost:5000/api/questions/${id}/star`);
+      await axios.post(`http://localhost:3000/api/questions/${id}/star`);
       setProblems(
         problems.map((problem) =>
           problem.id === id
@@ -59,7 +60,7 @@ const Dashboard: React.FC = () => {
 
   const toggleComplete = async (id: string) => {
     try {
-      await axios.post(`http://localhost:5000/api/questions/${id}/complete`);
+      await axios.post(`http://localhost:3000/api/questions/${id}/complete`);
       setProblems(
         problems.map((problem) =>
           problem.id === id

@@ -1,6 +1,6 @@
 "use client";
 
-import { oauthSigninAction } from "@/actions/oauth-signin-action";
+import { oauthSigninAction } from "@/actions/oauth-signin-actions";
 import { Button } from "./ui/button";
 import { FaGoogle, FaGithub } from "react-icons/fa";
 

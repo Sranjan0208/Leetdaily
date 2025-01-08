@@ -2,6 +2,7 @@ import { Brain, Target, Trophy } from "lucide-react";
 import Link from "next/link";
 
 export default function Home() {
+  console.log("Reaching Home");
   return (
     <div className="min-h-screen bg-gradient-to-tr from-gray-900 via-gray-800 to-black text-gray-200">
       {/* Hero Section */}

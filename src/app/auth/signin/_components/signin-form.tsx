@@ -30,7 +30,7 @@ export const SigninForm = () => {
     const res = await signinUserAction(values);
 
     if (res.success) {
-      window.location.href = "/profile";
+      window.location.href = "/dashboard";
     } else {
       switch (res.statusCode) {
         case 401:
@@ -52,9 +52,14 @@ export const SigninForm = () => {
           name="email"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Email</FormLabel>
+              <FormLabel className="text-white">Email</FormLabel>
               <FormControl>
-                <Input type="email" placeholder="jdoe@email.com" {...field} />
+                <Input
+                  type="email"
+                  placeholder="jdoe@email.com"
+                  {...field}
+                  className="w-full rounded-xl bg-gray-800 p-3 text-white placeholder-gray-400 shadow-lg shadow-zinc-900 transition duration-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -65,9 +70,14 @@ export const SigninForm = () => {
           name="password"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Password</FormLabel>
+              <FormLabel className="text-white">Password</FormLabel>
               <FormControl>
-                <Input type="password" placeholder="***********" {...field} />
+                <Input
+                  type="password"
+                  placeholder="***********"
+                  {...field}
+                  className="w-full rounded-xl bg-gray-800 p-3 text-white placeholder-gray-400 shadow-lg shadow-zinc-900 transition duration-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -76,7 +86,7 @@ export const SigninForm = () => {
         <Button
           type="submit"
           disabled={formState.isSubmitting}
-          className="w-full"
+          className="w-full duration-100 ease-in-out hover:scale-100 hover:bg-gray-900"
         >
           Sign In
         </Button>
