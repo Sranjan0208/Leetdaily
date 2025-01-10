@@ -4,8 +4,10 @@ import { ProblemCard } from "@/components/ProblemCard";
 import { Problem } from "@/types/problem";
 import axios from "axios";
 
-const Dashboard: React.FC = () => {
-  const [problems, setProblems] = useState<Problem[]>([]);
+const Dashboard = () => {
+  const [dailyProblems, setDailyProblems] = useState<Problem[]>([]);
+  const [starredProblems, setStarredProblems] = useState<Problem[]>([]);
+  const [completedProblems, setCompletedProblems] = useState<Problem[]>([]);
   const [activeTab, setActiveTab] = useState<"daily" | "starred" | "completed">(
     "daily",
   );
@@ -13,29 +15,68 @@ const Dashboard: React.FC = () => {
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
-    const fetchProblems = async () => {
-      try {
-        const response = await axios.get<{ dailyQuestions: Problem[] }>(
-          "http://localhost:3000/api/questions/daily-questions",
-        );
-        setProblems(response.data.dailyQuestions);
-        console.log(response.data);
-        setLoading(false);
-      } catch (err) {
-        console.error("Error fetching problems:", err);
-      }
-    };
-    fetchProblems();
+    fetchAllData();
   }, []);
+
+  const fetchAllData = async () => {
+    try {
+      const [dailyResponse, progressResponse] = await Promise.all([
+        axios.get<{ dailyQuestions: Problem[] }>(
+          "http://localhost:3000/api/questions/daily-questions",
+        ),
+        axios.get<{
+          completedQuestions: Problem[];
+          starredQuestions: Problem[];
+        }>("http://localhost:3000/api/questions/user-progress"),
+      ]);
+
+      // Create sets of starred and completed question IDs for easy lookup
+      const starredIds = new Set(
+        progressResponse.data.starredQuestions.map((q) => q.id),
+      );
+      const completedIds = new Set(
+        progressResponse.data.completedQuestions.map((q) => q.id),
+      );
+
+      // Update daily problems with correct starred and completed states
+      const updatedDailyProblems = dailyResponse.data.dailyQuestions.map(
+        (problem) => ({
+          ...problem,
+          starred: starredIds.has(problem.id),
+          completed: completedIds.has(problem.id),
+        }),
+      );
+
+      // Mark starred and completed properties in the respective lists
+      const updatedStarredProblems = progressResponse.data.starredQuestions.map(
+        (problem) => ({
+          ...problem,
+          starred: true,
+          completed: completedIds.has(problem.id),
+        }),
+      );
+
+      const updatedCompletedProblems =
+        progressResponse.data.completedQuestions.map((problem) => ({
+          ...problem,
+          completed: true,
+          starred: starredIds.has(problem.id),
+        }));
+
+      setDailyProblems(updatedDailyProblems);
+      setStarredProblems(updatedStarredProblems);
+      setCompletedProblems(updatedCompletedProblems);
+      setLoading(false);
+    } catch (err) {
+      console.error("Error fetching data:", err);
+      setLoading(false);
+    }
+  };
 
   const refreshQuestions = async () => {
     setRefreshing(true);
     try {
-      await axios.post("http://localhost:3000/api/questions/refresh");
-      const response = await axios.get<{ dailyQuestions: Problem[] }>(
-        "http://localhost:3000/api/questions/daily-questions",
-      );
-      setProblems(response.data.dailyQuestions);
+      await fetchAllData();
     } catch (err) {
       console.error("Error refreshing questions:", err);
     } finally {
@@ -46,43 +87,86 @@ const Dashboard: React.FC = () => {
   const toggleStar = async (id: string) => {
     try {
       await axios.post(`http://localhost:3000/api/questions/${id}/star`);
-      setProblems(
-        problems.map((problem) =>
-          problem.id === id
-            ? { ...problem, starred: !problem.starred }
-            : problem,
+
+      // Get the problem from either daily problems or starred problems
+      const problem =
+        dailyProblems.find((p) => p.id === id) ||
+        starredProblems.find((p) => p.id === id);
+
+      if (!problem) return;
+
+      const isCurrentlyStarred = starredProblems.some((p) => p.id === id);
+
+      // Update daily problems if the problem exists there
+      setDailyProblems((prevProblems) =>
+        prevProblems.map((p) =>
+          p.id === id ? { ...p, starred: !isCurrentlyStarred } : p,
         ),
       );
+
+      // Update starred problems
+      if (isCurrentlyStarred) {
+        // Remove from starred problems
+        setStarredProblems((prev) => prev.filter((p) => p.id !== id));
+      } else {
+        // Add to starred problems
+        setStarredProblems((prev) => [...prev, { ...problem, starred: true }]);
+      }
+
+      // Refresh data to ensure everything is in sync
+      await fetchAllData();
     } catch (err) {
       console.error("Error toggling star:", err);
+      await fetchAllData();
     }
   };
 
   const toggleComplete = async (id: string) => {
     try {
+      // First update the UI optimistically
+      const isCurrentlyCompleted = completedProblems.some((p) => p.id === id);
+
+      if (isCurrentlyCompleted) {
+        // Remove from completed problems immediately
+        setCompletedProblems((prev) => prev.filter((p) => p.id !== id));
+
+        // Update daily problems if it exists there
+        setDailyProblems((prevProblems) =>
+          prevProblems.map((p) =>
+            p.id === id ? { ...p, completed: false } : p,
+          ),
+        );
+      }
+
+      // Then make the API call
       await axios.post(`http://localhost:3000/api/questions/${id}/complete`);
-      setProblems(
-        problems.map((problem) =>
-          problem.id === id
-            ? { ...problem, completed: !problem.completed }
-            : problem,
-        ),
-      );
+
+      // Only fetch fresh data if we're removing completion in the completed tab
+      if (isCurrentlyCompleted && activeTab === "completed") {
+        await fetchAllData();
+        return;
+      }
+
+      // Handle adding completion
+      if (!isCurrentlyCompleted) {
+        // ... handle adding to completed list ...
+      }
     } catch (err) {
       console.error("Error toggling complete:", err);
+      await fetchAllData();
     }
   };
 
-  const filteredProblems = problems.filter((problem) => {
+  const getCurrentProblems = () => {
     switch (activeTab) {
       case "starred":
-        return problem.starred;
+        return starredProblems;
       case "completed":
-        return problem.completed;
+        return completedProblems;
       default:
-        return true;
+        return dailyProblems;
     }
-  });
+  };
 
   if (loading) {
     return (
@@ -152,7 +236,7 @@ const Dashboard: React.FC = () => {
         </button>
       </div>
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        {filteredProblems.map((problem) => (
+        {getCurrentProblems().map((problem) => (
           <ProblemCard
             key={problem.id}
             problem={problem}

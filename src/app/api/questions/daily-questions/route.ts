@@ -30,15 +30,18 @@ export async function GET() {
       new Date(dailyRecord.lastUpdated).toISOString().split("T")[0] ===
         todayDateString;
 
-    if (isSameDay && dailyRecord.questions.length > 0) {
-      const dailyQuestionDetails = await db
-        .select()
-        .from(questions)
-        .where(inArray(questions.id, dailyRecord.questions));
+    if (dailyRecord.questions !== null) {
+      if (isSameDay && dailyRecord.questions.length > 0) {
+        const dailyQuestionDetails = await db
+          .select()
+          .from(questions)
+          .where(inArray(questions.id, dailyRecord.questions));
 
-      return NextResponse.json({
-        dailyQuestions: dailyQuestionDetails,
-      });
+        return NextResponse.json({
+          success: true,
+          dailyQuestions: dailyQuestionDetails,
+        });
+      }
     }
 
     const userProgressData = await db
