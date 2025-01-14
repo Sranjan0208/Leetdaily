@@ -6,10 +6,10 @@ import { NextResponse } from "next/server";
 
 export async function POST(
   request: Request,
-  context: { params: { id: string } },
+  context: { params: Promise<{ id: string }> },
 ) {
   try {
-    const { params } = await context;
+    const { params } = context;
     const session = await auth();
 
     if (!session?.user?.id) {
@@ -17,7 +17,7 @@ export async function POST(
     }
 
     const userId = session.user.id;
-    const questionId = params.id;
+    const questionId = (await params).id;
 
     const progressRecord = await db
       .select()

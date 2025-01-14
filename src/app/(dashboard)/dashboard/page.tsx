@@ -3,6 +3,7 @@ import React, { useEffect, useState } from "react";
 import { ProblemCard } from "@/components/ProblemCard";
 import { Problem } from "@/types/problem";
 import axios from "axios";
+import { toast } from "sonner";
 
 const Dashboard = () => {
   const [dailyProblems, setDailyProblems] = useState<Problem[]>([]);
@@ -76,9 +77,29 @@ const Dashboard = () => {
   const refreshQuestions = async () => {
     setRefreshing(true);
     try {
-      await fetchAllData();
+      // Fetch new questions
+      const response = await axios.get<{ dailyQuestions: Problem[] }>(
+        "http://localhost:3000/api/questions/daily-questions?refresh=true",
+      );
+
+      // Get current starred and completed states
+      const starredIds = new Set(starredProblems.map((q) => q.id));
+      const completedIds = new Set(completedProblems.map((q) => q.id));
+
+      // Update daily problems with correct starred and completed states
+      const updatedDailyProblems = response.data.dailyQuestions.map(
+        (problem) => ({
+          ...problem,
+          starred: starredIds.has(problem.id),
+          completed: completedIds.has(problem.id),
+        }),
+      );
+
+      setDailyProblems(updatedDailyProblems);
+      toast("Daily questions refreshed successfully!"); // Consider using a toast notification instead
     } catch (err) {
       console.error("Error refreshing questions:", err);
+      toast("Failed to refresh questions. Please try again.");
     } finally {
       setRefreshing(false);
     }
@@ -108,9 +129,13 @@ const Dashboard = () => {
       if (isCurrentlyStarred) {
         // Remove from starred problems
         setStarredProblems((prev) => prev.filter((p) => p.id !== id));
+        toast("Question unstarred!");
       } else {
         // Add to starred problems
         setStarredProblems((prev) => [...prev, { ...problem, starred: true }]);
+        toast.success(
+          "Question Starred! It will be sent again at the end of the week to revise.",
+        );
       }
 
       // Refresh data to ensure everything is in sync
@@ -123,36 +148,42 @@ const Dashboard = () => {
 
   const toggleComplete = async (id: string) => {
     try {
-      // First update the UI optimistically
+      // Check if the question is currently marked as completed
       const isCurrentlyCompleted = completedProblems.some((p) => p.id === id);
 
+      // Optimistically update the state for dailyProblems
+      setDailyProblems((prevProblems) =>
+        prevProblems.map((p) =>
+          p.id === id ? { ...p, completed: !isCurrentlyCompleted } : p,
+        ),
+      );
+
+      // Optimistically update the state for completedProblems
       if (isCurrentlyCompleted) {
-        // Remove from completed problems immediately
+        // Remove from completed problems
         setCompletedProblems((prev) => prev.filter((p) => p.id !== id));
+        toast("Question unmarked as complete!");
+      } else {
+        // Find the problem in dailyProblems or starredProblems
+        const problem =
+          dailyProblems.find((p) => p.id === id) ||
+          starredProblems.find((p) => p.id === id);
 
-        // Update daily problems if it exists there
-        setDailyProblems((prevProblems) =>
-          prevProblems.map((p) =>
-            p.id === id ? { ...p, completed: false } : p,
-          ),
-        );
+        if (problem) {
+          setCompletedProblems((prev) => [
+            ...prev,
+            { ...problem, completed: true },
+          ]);
+        }
+        toast("Question marked as complete!");
       }
 
-      // Then make the API call
+      // Call the API to toggle completion status
       await axios.post(`http://localhost:3000/api/questions/${id}/complete`);
-
-      // Only fetch fresh data if we're removing completion in the completed tab
-      if (isCurrentlyCompleted && activeTab === "completed") {
-        await fetchAllData();
-        return;
-      }
-
-      // Handle adding completion
-      if (!isCurrentlyCompleted) {
-        // ... handle adding to completed list ...
-      }
     } catch (err) {
       console.error("Error toggling complete:", err);
+
+      // If an error occurs, refresh to ensure consistency
       await fetchAllData();
     }
   };
