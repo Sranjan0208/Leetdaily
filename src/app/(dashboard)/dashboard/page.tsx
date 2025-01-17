@@ -83,12 +83,12 @@ const Dashboard = () => {
     try {
       const [dailyResponse, progressResponse] = await Promise.all([
         axios.get<{ dailyQuestions: Problem[] }>(
-          "http://localhost:3000/api/questions/daily-questions",
+          "https://calm-cat-1a4b88.netlify.app/api/questions/daily-questions",
         ),
         axios.get<{
           completedQuestions: Problem[];
           starredQuestions: Problem[];
-        }>("http://localhost:3000/api/questions/user-progress"),
+        }>("https://calm-cat-1a4b88.netlify.app/api/questions/user-progress"),
       ]);
 
       // Create sets of starred and completed question IDs for easy lookup
@@ -139,7 +139,7 @@ const Dashboard = () => {
     try {
       // Fetch new questions
       const response = await axios.get<{ dailyQuestions: Problem[] }>(
-        "http://localhost:3000/api/questions/daily-questions?refresh=true",
+        "https://calm-cat-1a4b88.netlify.app/api/questions/daily-questions?refresh=true",
       );
 
       // Get current starred and completed states
@@ -243,7 +243,9 @@ const Dashboard = () => {
       }
 
       // Make API call
-      await axios.post(`http://localhost:3000/api/questions/${id}/star`);
+      await axios.post(
+        `https://calm-cat-1a4b88.netlify.app/api/questions/${id}/star`,
+      );
     } catch (err) {
       console.error("Error toggling star:", err);
       toast.error("Failed to update star status. Refreshing data...");
@@ -298,7 +300,9 @@ const Dashboard = () => {
       );
 
       // Make API call
-      await axios.post(`http://localhost:3000/api/questions/${id}/complete`);
+      await axios.post(
+        `https://calm-cat-1a4b88.netlify.app/api/questions/${id}/complete`,
+      );
     } catch (err) {
       console.error("Error toggling complete:", err);
       toast.error("Failed to update completion status. Refreshing data...");
