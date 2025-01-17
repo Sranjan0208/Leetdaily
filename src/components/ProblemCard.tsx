@@ -66,7 +66,7 @@ export const ProblemCard: React.FC<ProblemCardProps> = ({
       {/* View Button */}
       <div className="mt-4 flex items-center">
         <button
-          onClick={() => window.open(problem.link, "_blank")}
+          onClick={() => window.open(problem.questionLink, "_blank")}
           className="group relative inline-block cursor-pointer rounded-full bg-gray-800 p-px font-semibold leading-6 text-white shadow-2xl shadow-zinc-900 transition-transform duration-300 ease-in-out hover:scale-105 active:scale-95"
         >
           <span className="absolute inset-0 rounded-full bg-gradient-to-r from-teal-400 via-blue-500 to-purple-500 p-[2px] opacity-0 transition-opacity duration-500 group-hover:opacity-100"></span>

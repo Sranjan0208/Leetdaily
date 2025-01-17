@@ -18,6 +18,9 @@ export function Navbar() {
   const { data: session, status } = useSession();
   const isAuthenticated = status === "authenticated";
 
+  const pathname = usePathname();
+  const isDashboard = pathname === "/dashboard";
+
   return (
     <nav className="sticky top-0 z-50">
       <div className="absolute inset-0 bg-gray-900" />
@@ -82,10 +85,23 @@ export function Navbar() {
                     </DropdownMenuLabel>
                     <DropdownMenuSeparator className="bg-gray-800" />
                     <DropdownMenuGroup>
-                      <Link href="/dashboard/settings">
+                      <Link
+                        href={
+                          isDashboard ? "/dashboard/settings" : "/dashboard"
+                        }
+                      >
                         <DropdownMenuItem className="flex cursor-pointer items-center rounded-lg px-2 py-1.5 text-sm text-gray-200 transition-colors hover:bg-gray-800">
-                          <Settings className="mr-2 h-4 w-4" />
-                          <span>Settings</span>
+                          {isDashboard ? (
+                            <>
+                              <Settings className="mr-2 h-4 w-4" />
+                              <span>Settings</span>{" "}
+                            </>
+                          ) : (
+                            <>
+                              <Home className="mr-2 h-4 w-4" />
+                              <span>Dashboard</span>
+                            </>
+                          )}
                         </DropdownMenuItem>
                       </Link>
                     </DropdownMenuGroup>

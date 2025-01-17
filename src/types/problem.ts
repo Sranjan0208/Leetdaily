@@ -1,7 +1,7 @@
 export interface Problem {
   id: string;
   title: string;
-  link: string;
+  questionLink: string;
   difficulty: "Easy" | "Medium" | "Hard";
   paidOnly: boolean;
   starred: boolean;

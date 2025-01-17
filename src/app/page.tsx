@@ -14,24 +14,49 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 
-const BackgroundAnimation = () => (
-  <div className="absolute inset-0 overflow-hidden">
-    <div className="absolute -inset-[10px] opacity-50">
-      {[...Array(20)].map((_, i) => (
-        <div
-          key={i}
-          className="animate-gradient-x absolute h-[20px] w-[500px] rounded-full bg-gradient-to-r from-purple-500 via-indigo-500 to-pink-500 opacity-20 blur-3xl"
-          style={{
-            top: `${Math.random() * 100}%`,
-            left: `${Math.random() * 100}%`,
-            animationDelay: `${Math.random() * 4}s`,
-            transform: `rotate(${Math.random() * 360}deg)`,
-          }}
-        />
-      ))}
+interface AnimationElement {
+  id: number;
+  top: number;
+  left: number;
+  delay: number;
+  rotation: number;
+}
+
+const BackgroundAnimation = () => {
+  const [animationElements, setAnimationElements] = useState<
+    AnimationElement[]
+  >([]);
+
+  useEffect(() => {
+    const elements = [...Array(20)].map((_, i) => ({
+      id: i,
+      top: Math.random() * 100,
+      left: Math.random() * 100,
+      delay: Math.random() * 4,
+      rotation: Math.random() * 360,
+    }));
+    setAnimationElements(elements);
+  }, []);
+
+  return (
+    <div className="absolute inset-0 overflow-hidden">
+      <div className="absolute -inset-[10px] opacity-50">
+        {animationElements.map((element) => (
+          <div
+            key={element.id}
+            className="animate-gradient-x absolute h-[20px] w-[500px] rounded-full bg-gradient-to-r from-purple-500 via-indigo-500 to-pink-500 opacity-20 blur-3xl"
+            style={{
+              top: `${element.top}%`,
+              left: `${element.left}%`,
+              animationDelay: `${element.delay}s`,
+              transform: `rotate(${element.rotation}deg)`,
+            }}
+          />
+        ))}
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 const GlowingCard = ({ children }) => (
   <div className="group relative rounded-xl bg-gray-800/50 p-1">
@@ -50,9 +75,11 @@ const StatCard = ({ number, label, icon: Icon }) => (
 
 export default function Home() {
   const [isVisible, setIsVisible] = useState(false);
+  const [currentYear, setCurrentYear] = useState("");
 
   useEffect(() => {
     setIsVisible(true);
+    setCurrentYear(new Date().getFullYear().toString());
   }, []);
 
   return (
@@ -190,7 +217,10 @@ export default function Home() {
                 practice and continuous learning.
               </p>
               <div className="flex space-x-4">
-                <Link href="#" className="text-gray-400 hover:text-white">
+                <Link
+                  href="https://github.com/Sranjan0208"
+                  className="text-gray-400 hover:text-white"
+                >
                   <Github className="h-5 w-5" />
                 </Link>
                 <Link href="#" className="text-gray-400 hover:text-white">
@@ -281,7 +311,7 @@ export default function Home() {
 
           <div className="mt-12 border-t border-gray-800 pt-8 text-center">
             <p className="text-sm text-gray-400">
-              © {new Date().getFullYear()} LeetDaily. All rights reserved.
+              © {currentYear} LeetDaily. All rights reserved.
             </p>
           </div>
         </div>

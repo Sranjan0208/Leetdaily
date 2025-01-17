@@ -4,6 +4,64 @@ import { ProblemCard } from "@/components/ProblemCard";
 import { Problem } from "@/types/problem";
 import axios from "axios";
 import { toast } from "sonner";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
+
+const ITEMS_PER_PAGE = 6;
+
+function MessageLoading() {
+  return (
+    <div className="flex h-screen max-h-screen items-center justify-center bg-gray-900">
+      <svg
+        width="24"
+        height="24"
+        viewBox="0 0 24 24"
+        xmlns="http://www.w3.org/2000/svg"
+        className="text-white"
+      >
+        <circle cx="4" cy="12" r="2" fill="currentColor">
+          <animate
+            id="spinner_qFRN"
+            begin="0;spinner_OcgL.end+0.25s"
+            attributeName="cy"
+            calcMode="spline"
+            dur="0.6s"
+            values="12;6;12"
+            keySplines=".33,.66,.66,1;.33,0,.66,.33"
+          />
+        </circle>
+        <circle cx="12" cy="12" r="2" fill="currentColor">
+          <animate
+            begin="spinner_qFRN.begin+0.1s"
+            attributeName="cy"
+            calcMode="spline"
+            dur="0.6s"
+            values="12;6;12"
+            keySplines=".33,.66,.66,1;.33,0,.66,.33"
+          />
+        </circle>
+        <circle cx="20" cy="12" r="2" fill="currentColor">
+          <animate
+            id="spinner_OcgL"
+            begin="spinner_qFRN.begin+0.2s"
+            attributeName="cy"
+            calcMode="spline"
+            dur="0.6s"
+            values="12;6;12"
+            keySplines=".33,.66,.66,1;.33,0,.66,.33"
+          />
+        </circle>
+      </svg>
+    </div>
+  );
+}
 
 const Dashboard = () => {
   const [dailyProblems, setDailyProblems] = useState<Problem[]>([]);
@@ -14,6 +72,8 @@ const Dashboard = () => {
   );
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [pendingUpdates, setPendingUpdates] = useState<Set<string>>(new Set());
+  const [currentPage, setCurrentPage] = useState(1);
 
   useEffect(() => {
     fetchAllData();
@@ -105,109 +165,298 @@ const Dashboard = () => {
     }
   };
 
-  const toggleStar = async (id: string) => {
-    try {
-      await axios.post(`http://localhost:3000/api/questions/${id}/star`);
+  const updateProblemInAllLists = (
+    id: string,
+    updates: Partial<Problem>,
+    removeFromStarred = false,
+    removeFromCompleted = false,
+  ) => {
+    const updateList = (problems: Problem[]) =>
+      problems.map((p) => (p.id === id ? { ...p, ...updates } : p));
 
-      // Get the problem from either daily problems or starred problems
+    // Always update daily problems
+    setDailyProblems((prev) => updateList(prev));
+
+    // Handle starred problems
+    if (removeFromStarred) {
+      setStarredProblems((prev) => prev.filter((p) => p.id !== id));
+    } else {
+      setStarredProblems((prev) => {
+        // Only update if the problem already exists in the list
+        if (prev.some((p) => p.id === id)) {
+          return updateList(prev);
+        }
+        return prev;
+      });
+    }
+
+    // Handle completed problems
+    if (removeFromCompleted) {
+      setCompletedProblems((prev) => prev.filter((p) => p.id !== id));
+    } else {
+      setCompletedProblems((prev) => {
+        // Only update if the problem already exists in the list
+        if (prev.some((p) => p.id === id)) {
+          return updateList(prev);
+        }
+        return prev;
+      });
+    }
+  };
+
+  const toggleStar = async (id: string) => {
+    if (pendingUpdates.has(id)) {
+      return;
+    }
+
+    try {
+      setPendingUpdates((prev) => new Set(prev).add(id));
+
       const problem =
         dailyProblems.find((p) => p.id === id) ||
-        starredProblems.find((p) => p.id === id);
+        starredProblems.find((p) => p.id === id) ||
+        completedProblems.find((p) => p.id === id);
 
       if (!problem) return;
 
-      const isCurrentlyStarred = starredProblems.some((p) => p.id === id);
+      const isCurrentlyStarred = problem.starred;
 
-      // Update daily problems if the problem exists there
-      setDailyProblems((prevProblems) =>
-        prevProblems.map((p) =>
-          p.id === id ? { ...p, starred: !isCurrentlyStarred } : p,
-        ),
+      // Optimistic update for all lists
+      updateProblemInAllLists(
+        id,
+        { starred: !isCurrentlyStarred },
+        isCurrentlyStarred, // remove from starred if currently starred
       );
 
-      // Update starred problems
+      // Additionally, if we're starring (not unstarring), add to starred list
+      if (!isCurrentlyStarred) {
+        setStarredProblems((prev) => [...prev, { ...problem, starred: true }]);
+      }
+
+      // Show appropriate toast
       if (isCurrentlyStarred) {
-        // Remove from starred problems
-        setStarredProblems((prev) => prev.filter((p) => p.id !== id));
         toast("Question unstarred!");
       } else {
-        // Add to starred problems
-        setStarredProblems((prev) => [...prev, { ...problem, starred: true }]);
         toast.success(
           "Question Starred! It will be sent again at the end of the week to revise.",
         );
       }
 
-      // Refresh data to ensure everything is in sync
-      await fetchAllData();
+      // Make API call
+      await axios.post(`http://localhost:3000/api/questions/${id}/star`);
     } catch (err) {
       console.error("Error toggling star:", err);
-      await fetchAllData();
+      toast.error("Failed to update star status. Refreshing data...");
+      await fetchAllData(); // Refresh all data to ensure consistency
+    } finally {
+      setPendingUpdates((prev) => {
+        const updated = new Set(prev);
+        updated.delete(id);
+        return updated;
+      });
     }
   };
 
   const toggleComplete = async (id: string) => {
-    try {
-      // Check if the question is currently marked as completed
-      const isCurrentlyCompleted = completedProblems.some((p) => p.id === id);
+    if (pendingUpdates.has(id)) {
+      return;
+    }
 
-      // Optimistically update the state for dailyProblems
-      setDailyProblems((prevProblems) =>
-        prevProblems.map((p) =>
-          p.id === id ? { ...p, completed: !isCurrentlyCompleted } : p,
-        ),
+    try {
+      setPendingUpdates((prev) => new Set(prev).add(id));
+
+      const problem =
+        dailyProblems.find((p) => p.id === id) ||
+        starredProblems.find((p) => p.id === id) ||
+        completedProblems.find((p) => p.id === id);
+
+      if (!problem) return;
+
+      const isCurrentlyCompleted = problem.completed;
+
+      // Optimistic update for all lists
+      updateProblemInAllLists(
+        id,
+        { completed: !isCurrentlyCompleted },
+        false, // don't remove from starred
+        isCurrentlyCompleted, // remove from completed if currently completed
       );
 
-      // Optimistically update the state for completedProblems
-      if (isCurrentlyCompleted) {
-        // Remove from completed problems
-        setCompletedProblems((prev) => prev.filter((p) => p.id !== id));
-        toast("Question unmarked as complete!");
-      } else {
-        // Find the problem in dailyProblems or starredProblems
-        const problem =
-          dailyProblems.find((p) => p.id === id) ||
-          starredProblems.find((p) => p.id === id);
-
-        if (problem) {
-          setCompletedProblems((prev) => [
-            ...prev,
-            { ...problem, completed: true },
-          ]);
-        }
-        toast("Question marked as complete!");
+      // Additionally, if we're completing (not uncompleting), add to completed list
+      if (!isCurrentlyCompleted) {
+        setCompletedProblems((prev) => [
+          ...prev,
+          { ...problem, completed: true },
+        ]);
       }
 
-      // Call the API to toggle completion status
+      // Show appropriate toast
+      toast(
+        isCurrentlyCompleted
+          ? "Question unmarked as complete!"
+          : "Question marked as complete!",
+      );
+
+      // Make API call
       await axios.post(`http://localhost:3000/api/questions/${id}/complete`);
     } catch (err) {
       console.error("Error toggling complete:", err);
-
-      // If an error occurs, refresh to ensure consistency
-      await fetchAllData();
+      toast.error("Failed to update completion status. Refreshing data...");
+      await fetchAllData(); // Refresh all data to ensure consistency
+    } finally {
+      setPendingUpdates((prev) => {
+        const updated = new Set(prev);
+        updated.delete(id);
+        return updated;
+      });
     }
   };
 
   const getCurrentProblems = () => {
-    switch (activeTab) {
-      case "starred":
-        return starredProblems;
-      case "completed":
-        return completedProblems;
-      default:
-        return dailyProblems;
-    }
+    const problems = (() => {
+      switch (activeTab) {
+        case "starred":
+          return starredProblems;
+        case "completed":
+          return completedProblems;
+        default:
+          return dailyProblems;
+      }
+    })();
+
+    // Calculate pagination
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    const endIndex = startIndex + ITEMS_PER_PAGE;
+    return problems.slice(startIndex, endIndex);
+  };
+
+  const getTotalPages = () => {
+    const totalItems = (() => {
+      switch (activeTab) {
+        case "starred":
+          return starredProblems.length;
+        case "completed":
+          return completedProblems.length;
+        default:
+          return dailyProblems.length;
+      }
+    })();
+
+    return Math.ceil(totalItems / ITEMS_PER_PAGE);
+  };
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeTab]);
+
+  const PaginationControls = () => {
+    const totalPages = getTotalPages();
+    if (totalPages <= 1) return null;
+
+    const pages = Array.from({ length: totalPages }, (_, i) => i + 1);
+    const showEllipsisStart = currentPage > 3;
+    const showEllipsisEnd = currentPage < totalPages - 2;
+
+    const getVisiblePages = () => {
+      if (totalPages <= 5) return pages;
+
+      if (currentPage <= 3) return pages.slice(0, 5);
+      if (currentPage >= totalPages - 2) return pages.slice(-5);
+
+      return pages.slice(currentPage - 2, currentPage + 1);
+    };
+
+    return (
+      <Pagination className="mt-6">
+        <PaginationContent>
+          <PaginationItem>
+            <PaginationPrevious
+              href="#"
+              onClick={(e) => {
+                e.preventDefault();
+                setCurrentPage((p) => Math.max(1, p - 1));
+              }}
+              className={
+                currentPage === 1 ? "pointer-events-none opacity-50" : ""
+              }
+            />
+          </PaginationItem>
+
+          {showEllipsisStart && (
+            <>
+              <PaginationItem>
+                <PaginationLink
+                  href="#"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setCurrentPage(1);
+                  }}
+                >
+                  1
+                </PaginationLink>
+              </PaginationItem>
+              <PaginationItem>
+                <PaginationEllipsis />
+              </PaginationItem>
+            </>
+          )}
+
+          {getVisiblePages().map((page) => (
+            <PaginationItem key={page}>
+              <PaginationLink
+                href="#"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setCurrentPage(page);
+                }}
+                isActive={currentPage === page}
+                className={currentPage === page ? "text-black" : "c"}
+              >
+                {page}
+              </PaginationLink>
+            </PaginationItem>
+          ))}
+
+          {showEllipsisEnd && (
+            <>
+              <PaginationItem>
+                <PaginationEllipsis />
+              </PaginationItem>
+              <PaginationItem>
+                <PaginationLink
+                  href="#"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setCurrentPage(totalPages);
+                  }}
+                >
+                  {totalPages}
+                </PaginationLink>
+              </PaginationItem>
+            </>
+          )}
+
+          <PaginationItem>
+            <PaginationNext
+              href="#"
+              onClick={(e) => {
+                e.preventDefault();
+                setCurrentPage((p) => Math.min(totalPages, p + 1));
+              }}
+              className={
+                currentPage === totalPages
+                  ? "pointer-events-none opacity-50"
+                  : ""
+              }
+            />
+          </PaginationItem>
+        </PaginationContent>
+      </Pagination>
+    );
   };
 
   if (loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-900 text-white">
-        <div className="text-center">
-          <div className="mb-4 h-16 w-16 animate-spin rounded-full border-t-4 border-indigo-500"></div>
-          <p className="text-lg">Loading Problems...</p>
-        </div>
-      </div>
-    );
+    return <MessageLoading />;
   }
 
   return (
@@ -276,6 +525,7 @@ const Dashboard = () => {
           />
         ))}
       </div>
+      <PaginationControls />
     </div>
   );
 };

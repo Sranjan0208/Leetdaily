@@ -97,25 +97,27 @@ const Settings = () => {
                     src={imagePreview}
                     alt="Profile"
                     className="h-24 w-24 rounded-full object-cover"
+                    width={100}
+                    height={100}
                   />
                 ) : (
                   <div className="flex h-24 w-24 items-center justify-center rounded-full bg-gray-700">
                     <User className="h-12 w-12 text-gray-400" />
                   </div>
                 )}
-                <label
+                <Label
                   htmlFor="image-upload"
                   className="absolute bottom-0 right-0 cursor-pointer rounded-full bg-gray-700 p-2 hover:bg-gray-600"
                 >
                   <Camera className="h-4 w-4" />
-                  <input
+                  <Input
                     id="image-upload"
                     type="file"
                     className="hidden"
                     accept="image/*"
                     onChange={handleImageChange}
                   />
-                </label>
+                </Label>
               </div>
             </div>
             <div className="space-y-4">
