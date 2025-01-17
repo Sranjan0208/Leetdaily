@@ -11,6 +11,7 @@ import {
   Mail,
   Github,
   Twitter,
+  LucideIcon,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -20,6 +21,16 @@ interface AnimationElement {
   left: number;
   delay: number;
   rotation: number;
+}
+
+interface GlowingCardProps {
+  children: React.ReactNode;
+}
+
+interface StatCardProps {
+  number: string;
+  label: string;
+  icon: LucideIcon;
 }
 
 const BackgroundAnimation = () => {
@@ -58,14 +69,14 @@ const BackgroundAnimation = () => {
   );
 };
 
-const GlowingCard = ({ children }) => (
+const GlowingCard: React.FC<GlowingCardProps> = ({ children }) => (
   <div className="group relative rounded-xl bg-gray-800/50 p-1">
     <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 opacity-0 blur transition-opacity duration-500 group-hover:opacity-30" />
     {children}
   </div>
 );
 
-const StatCard = ({ number, label, icon: Icon }) => (
+const StatCard: React.FC<StatCardProps> = ({ number, label, icon: Icon }) => (
   <div className="flex flex-col items-center space-y-2 rounded-lg bg-gray-800/50 p-6 text-center">
     <Icon className="h-8 w-8 text-indigo-400" />
     <span className="text-4xl font-bold text-white">{number}</span>
