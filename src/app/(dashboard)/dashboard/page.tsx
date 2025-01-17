@@ -83,12 +83,12 @@ const Dashboard = () => {
     try {
       const [dailyResponse, progressResponse] = await Promise.all([
         axios.get<{ dailyQuestions: Problem[] }>(
-          "https://calm-cat-1a4b88.netlify.app/api/questions/daily-questions",
+          "https://leet-daily.netlify.app/api/questions/daily-questions",
         ),
         axios.get<{
           completedQuestions: Problem[];
           starredQuestions: Problem[];
-        }>("https://calm-cat-1a4b88.netlify.app/api/questions/user-progress"),
+        }>("https://leet-daily.netlify.app/api/questions/user-progress"),
       ]);
 
       // Create sets of starred and completed question IDs for easy lookup
@@ -139,7 +139,7 @@ const Dashboard = () => {
     try {
       // Fetch new questions
       const response = await axios.get<{ dailyQuestions: Problem[] }>(
-        "https://calm-cat-1a4b88.netlify.app/api/questions/daily-questions?refresh=true",
+        "https://leet-daily.netlify.app/api/questions/daily-questions?refresh=true",
       );
 
       // Get current starred and completed states
@@ -244,7 +244,7 @@ const Dashboard = () => {
 
       // Make API call
       await axios.post(
-        `https://calm-cat-1a4b88.netlify.app/api/questions/${id}/star`,
+        `https://leet-daily.netlify.app/api/questions/${id}/star`,
       );
     } catch (err) {
       console.error("Error toggling star:", err);
@@ -301,7 +301,7 @@ const Dashboard = () => {
 
       // Make API call
       await axios.post(
-        `https://calm-cat-1a4b88.netlify.app/api/questions/${id}/complete`,
+        `https://leet-daily.netlify.app/api/questions/${id}/complete`,
       );
     } catch (err) {
       console.error("Error toggling complete:", err);
