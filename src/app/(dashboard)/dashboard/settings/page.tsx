@@ -33,11 +33,8 @@ import {
 import { toast } from "sonner";
 import {
   Bell,
-  Moon,
   Sun,
-  Globe,
   Shield,
-  Mail,
   BarChart,
   Camera,
   User,
