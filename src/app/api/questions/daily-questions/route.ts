@@ -142,6 +142,7 @@ export async function GET(request: Request) {
         lastUpdated: now,
       });
     }
+    console.log(newDailyQuestions);
 
     return NextResponse.json({
       success: true,

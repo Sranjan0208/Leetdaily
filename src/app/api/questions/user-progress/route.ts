@@ -1,3 +1,4 @@
+// First, update your user progress API endpoint (app/api/questions/user-progress/route.ts)
 import { auth } from "@/auth";
 import db from "@/drizzle";
 import { userProgress, questions } from "@/drizzle/schema";
@@ -6,7 +7,6 @@ import { NextResponse } from "next/server";
 
 export async function GET() {
   try {
-    // Authentication check
     const session = await auth();
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -14,73 +14,42 @@ export async function GET() {
 
     const userId = session.user.id;
 
-    // First, try to fetch existing user progress
-    let userProgressData = await db
+    // Get user progress
+    const progressRecord = await db
       .select()
       .from(userProgress)
       .where(eq(userProgress.userId, userId))
+      .limit(1)
       .then((res) => res[0]);
 
-    // If no progress exists, create a new progress record
-    if (!userProgressData) {
-      const newProgress = await db
-        .insert(userProgress)
-        .values({
-          userId: userId,
-          completedQuestions: [], // Initialize with empty arrays
-          starredQuestions: [],
-          lastUpdated: new Date(),
-        })
-        .returning(); // Get the inserted record
-
-      userProgressData = newProgress[0];
+    if (!progressRecord) {
+      // Return empty arrays if no progress exists
+      return NextResponse.json({
+        starredQuestions: [],
+        completedQuestions: [],
+      });
     }
 
-    // Ensure arrays are initialized even if they're null in the database
-    const completedQuestions = userProgressData.completedQuestions || [];
-    const starredQuestions = userProgressData.starredQuestions || [];
-
-    // Only fetch question details if there are IDs to fetch
-    const [completedQuestionsData, starredQuestionsData] = await Promise.all([
-      completedQuestions.length > 0
-        ? db
-            .select()
-            .from(questions)
-            .where(inArray(questions.id, completedQuestions))
-        : Promise.resolve([]),
-      starredQuestions.length > 0
-        ? db
-            .select()
-            .from(questions)
-            .where(inArray(questions.id, starredQuestions))
-        : Promise.resolve([]),
+    // Get full question details for starred and completed questions
+    const [starredDetails, completedDetails] = await Promise.all([
+      db
+        .select()
+        .from(questions)
+        .where(inArray(questions.id, progressRecord.starredQuestions || [])),
+      db
+        .select()
+        .from(questions)
+        .where(inArray(questions.id, progressRecord.completedQuestions || [])),
     ]);
 
-    // Return structured response with empty arrays if no data
     return NextResponse.json({
-      success: true,
-      completedQuestions: completedQuestionsData,
-      starredQuestions: starredQuestionsData,
+      starredQuestions: starredDetails,
+      completedQuestions: completedDetails,
     });
   } catch (err) {
-    console.error("Error in user progress handler:", err);
-
-    // Provide more specific error messages based on error type
-    if (err instanceof Error) {
-      return NextResponse.json(
-        {
-          error: "Failed to process user progress",
-          message: err.message,
-          // Avoid exposing full error details in production
-          details:
-            process.env.NODE_ENV === "development" ? err.stack : undefined,
-        },
-        { status: 500 },
-      );
-    }
-
+    console.error("Error fetching user progress:", err);
     return NextResponse.json(
-      { error: "An unexpected error occurred" },
+      { error: "Failed to fetch user progress" },
       { status: 500 },
     );
   }

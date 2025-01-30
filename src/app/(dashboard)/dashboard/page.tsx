@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { ProblemCard } from "@/components/ProblemCard";
 import { Problem } from "@/types/problem";
 import axios from "axios";
@@ -13,8 +13,16 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination";
+import { getApiUrl } from "@/lib/config";
 
 const ITEMS_PER_PAGE = 6;
+const BATCH_INTERVAL = 1000;
+
+type BatchOperation = {
+  id: string;
+  type: "star" | "complete";
+  value: boolean;
+};
 
 function MessageLoading() {
   return (
@@ -72,64 +80,110 @@ const Dashboard = () => {
   );
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [pendingUpdates, setPendingUpdates] = useState<Set<string>>(new Set());
   const [currentPage, setCurrentPage] = useState(1);
+
+  // Batch Operations Queue
+  const [pendingOperations, setPendingOperations] = useState<BatchOperation[]>(
+    [],
+  );
+  const [processingBatch, setProcessingBatch] = useState(false);
 
   useEffect(() => {
     fetchAllData();
   }, []);
 
+  // Process batch operations
+
+  useEffect(() => {
+    let batchTimeout: NodeJS.Timeout;
+
+    const processBatch = async () => {
+      if (processingBatch || pendingOperations.length === 0) return;
+
+      setProcessingBatch(true);
+      const currentBatch = [...pendingOperations];
+      setPendingOperations([]);
+
+      try {
+        // Process all operations in a single request
+        await axios.post(getApiUrl("/questions/batch-operations"), {
+          operations: currentBatch,
+        });
+
+        toast.success("Updates processed successfully!");
+      } catch (error) {
+        console.error("Batch operation failed:", error);
+        toast.error("Failed to process updates. Refreshing data...");
+        await fetchAllData();
+      } finally {
+        setProcessingBatch(false);
+      }
+    };
+
+    if (pendingOperations.length > 0) {
+      batchTimeout = setTimeout(processBatch, BATCH_INTERVAL);
+    }
+
+    return () => clearTimeout(batchTimeout);
+  }, [pendingOperations, processingBatch]);
+
   const fetchAllData = async () => {
     try {
+      setLoading(true);
       const [dailyResponse, progressResponse] = await Promise.all([
-        axios.get<{ dailyQuestions: Problem[] }>(
-          "https://leet-daily.netlify.app/api/questions/daily-questions",
+        axios.get<{ success: boolean; dailyQuestions: Problem[] }>(
+          getApiUrl("/questions/daily-questions"),
         ),
         axios.get<{
           completedQuestions: Problem[];
           starredQuestions: Problem[];
-        }>("https://leet-daily.netlify.app/api/questions/user-progress"),
+        }>(getApiUrl("/questions/user-progress")),
       ]);
 
-      // Create sets of starred and completed question IDs for easy lookup
-      const starredIds = new Set(
-        progressResponse.data.starredQuestions.map((q) => q.id),
-      );
-      const completedIds = new Set(
-        progressResponse.data.completedQuestions.map((q) => q.id),
-      );
+      // Ensure we have the daily questions data
+      if (!dailyResponse.data.success || !dailyResponse.data.dailyQuestions) {
+        throw new Error("Failed to fetch daily questions");
+      }
 
-      // Update daily problems with correct starred and completed states
-      const updatedDailyProblems = dailyResponse.data.dailyQuestions.map(
-        (problem) => ({
+      // Ensure we have arrays even if the response is empty
+      const starredQuestions = progressResponse.data.starredQuestions || [];
+      const completedQuestions = progressResponse.data.completedQuestions || [];
+
+      // Create sets for efficient lookup
+      const starredIds = new Set(starredQuestions.map((q) => q.id));
+      const completedIds = new Set(completedQuestions.map((q) => q.id));
+
+      // Update daily problems
+      setDailyProblems(
+        dailyResponse.data.dailyQuestions.map((problem) => ({
           ...problem,
           starred: starredIds.has(problem.id),
           completed: completedIds.has(problem.id),
-        }),
+        })),
       );
 
-      // Mark starred and completed properties in the respective lists
-      const updatedStarredProblems = progressResponse.data.starredQuestions.map(
-        (problem) => ({
+      // Update starred problems
+      setStarredProblems(
+        starredQuestions.map((problem) => ({
           ...problem,
           starred: true,
           completed: completedIds.has(problem.id),
-        }),
+        })),
       );
 
-      const updatedCompletedProblems =
-        progressResponse.data.completedQuestions.map((problem) => ({
+      // Update completed problems
+      setCompletedProblems(
+        completedQuestions.map((problem) => ({
           ...problem,
           completed: true,
           starred: starredIds.has(problem.id),
-        }));
+        })),
+      );
 
-      setDailyProblems(updatedDailyProblems);
-      setStarredProblems(updatedStarredProblems);
-      setCompletedProblems(updatedCompletedProblems);
       setLoading(false);
     } catch (err) {
       console.error("Error fetching data:", err);
+      toast.error("Failed to fetch data. Please try again.");
       setLoading(false);
     }
   };
@@ -137,184 +191,106 @@ const Dashboard = () => {
   const refreshQuestions = async () => {
     setRefreshing(true);
     try {
-      // Fetch new questions
-      const response = await axios.get<{ dailyQuestions: Problem[] }>(
-        "https://leet-daily.netlify.app/api/questions/daily-questions?refresh=true",
-      );
+      const response = await axios.get<{
+        success: boolean;
+        dailyQuestions: Problem[];
+      }>(getApiUrl("/questions/daily-questions?refresh=true"));
 
-      // Get current starred and completed states
-      const starredIds = new Set(starredProblems.map((q) => q.id));
-      const completedIds = new Set(completedProblems.map((q) => q.id));
+      if (!response.data.success || !response.data.dailyQuestions) {
+        throw new Error("Failed to refresh questions");
+      }
 
-      // Update daily problems with correct starred and completed states
-      const updatedDailyProblems = response.data.dailyQuestions.map(
-        (problem) => ({
+      // Clear existing problems and set new ones
+      setDailyProblems(
+        response.data.dailyQuestions.map((problem) => ({
           ...problem,
-          starred: starredIds.has(problem.id),
-          completed: completedIds.has(problem.id),
-        }),
+          starred: false,
+          completed: false,
+        })),
       );
 
-      setDailyProblems(updatedDailyProblems);
-      toast("Daily questions refreshed successfully!"); // Consider using a toast notification instead
+      toast.success("Questions refreshed successfully!");
     } catch (err) {
       console.error("Error refreshing questions:", err);
-      toast("Failed to refresh questions. Please try again.");
+      toast.error("Failed to refresh questions");
     } finally {
       setRefreshing(false);
     }
   };
 
-  const updateProblemInAllLists = (
-    id: string,
-    updates: Partial<Problem>,
-    removeFromStarred = false,
-    removeFromCompleted = false,
-  ) => {
-    const updateList = (problems: Problem[]) =>
-      problems.map((p) => (p.id === id ? { ...p, ...updates } : p));
+  const toggleStar = useCallback(
+    (id: string) => {
+      const problem = [
+        ...dailyProblems,
+        ...starredProblems,
+        ...completedProblems,
+      ].find((p) => p.id === id);
 
-    // Always update daily problems
-    setDailyProblems((prev) => updateList(prev));
+      if (!problem) return;
 
-    // Handle starred problems
-    if (removeFromStarred) {
-      setStarredProblems((prev) => prev.filter((p) => p.id !== id));
-    } else {
+      const newValue = !problem.starred;
+
+      // Optimistic update
+      updateProblemInAllLists(id, { starred: newValue });
+
+      // Add to batch queue
+      setPendingOperations((prev) => [
+        ...prev,
+        { id, type: "star", value: newValue },
+      ]);
+    },
+    [dailyProblems, starredProblems, completedProblems],
+  );
+
+  const toggleComplete = useCallback(
+    (id: string) => {
+      const problem = [
+        ...dailyProblems,
+        ...starredProblems,
+        ...completedProblems,
+      ].find((p) => p.id === id);
+
+      if (!problem) return;
+
+      const newValue = !problem.completed;
+
+      // Optimistic update
+      updateProblemInAllLists(id, { completed: newValue });
+
+      // Add to batch queue
+      setPendingOperations((prev) => [
+        ...prev,
+        { id, type: "complete", value: newValue },
+      ]);
+    },
+    [dailyProblems, starredProblems, completedProblems],
+  );
+
+  const updateProblemInAllLists = useCallback(
+    (id: string, updates: Partial<Problem>) => {
+      const updateList = (problems: Problem[]) =>
+        problems.map((p) => (p.id === id ? { ...p, ...updates } : p));
+
+      setDailyProblems(updateList);
       setStarredProblems((prev) => {
-        // Only update if the problem already exists in the list
-        if (prev.some((p) => p.id === id)) {
-          return updateList(prev);
+        const isStarred =
+          updates.starred ?? prev.some((p) => p.id === id && p.starred);
+        if (!isStarred) {
+          return prev.filter((p) => p.id !== id);
         }
-        return prev;
+        return updateList(prev);
       });
-    }
-
-    // Handle completed problems
-    if (removeFromCompleted) {
-      setCompletedProblems((prev) => prev.filter((p) => p.id !== id));
-    } else {
       setCompletedProblems((prev) => {
-        // Only update if the problem already exists in the list
-        if (prev.some((p) => p.id === id)) {
-          return updateList(prev);
+        const isCompleted =
+          updates.completed ?? prev.some((p) => p.id === id && p.completed);
+        if (!isCompleted) {
+          return prev.filter((p) => p.id !== id);
         }
-        return prev;
+        return updateList(prev);
       });
-    }
-  };
-
-  const toggleStar = async (id: string) => {
-    if (pendingUpdates.has(id)) {
-      return;
-    }
-
-    try {
-      setPendingUpdates((prev) => new Set(prev).add(id));
-
-      const problem =
-        dailyProblems.find((p) => p.id === id) ||
-        starredProblems.find((p) => p.id === id) ||
-        completedProblems.find((p) => p.id === id);
-
-      if (!problem) return;
-
-      const isCurrentlyStarred = problem.starred;
-
-      // Optimistic update for all lists
-      updateProblemInAllLists(
-        id,
-        { starred: !isCurrentlyStarred },
-        isCurrentlyStarred, // remove from starred if currently starred
-      );
-
-      // Additionally, if we're starring (not unstarring), add to starred list
-      if (!isCurrentlyStarred) {
-        setStarredProblems((prev) => [...prev, { ...problem, starred: true }]);
-      }
-
-      // Show appropriate toast
-      if (isCurrentlyStarred) {
-        toast("Question unstarred!");
-      } else {
-        toast.success(
-          "Question Starred! It will be sent again at the end of the week to revise.",
-        );
-      }
-
-      // Make API call
-      await axios.post(
-        `https://leet-daily.netlify.app/api/questions/${id}/star`,
-      );
-    } catch (err) {
-      console.error("Error toggling star:", err);
-      toast.error("Failed to update star status. Refreshing data...");
-      await fetchAllData(); // Refresh all data to ensure consistency
-    } finally {
-      setPendingUpdates((prev) => {
-        const updated = new Set(prev);
-        updated.delete(id);
-        return updated;
-      });
-    }
-  };
-
-  const toggleComplete = async (id: string) => {
-    if (pendingUpdates.has(id)) {
-      return;
-    }
-
-    try {
-      setPendingUpdates((prev) => new Set(prev).add(id));
-
-      const problem =
-        dailyProblems.find((p) => p.id === id) ||
-        starredProblems.find((p) => p.id === id) ||
-        completedProblems.find((p) => p.id === id);
-
-      if (!problem) return;
-
-      const isCurrentlyCompleted = problem.completed;
-
-      // Optimistic update for all lists
-      updateProblemInAllLists(
-        id,
-        { completed: !isCurrentlyCompleted },
-        false, // don't remove from starred
-        isCurrentlyCompleted, // remove from completed if currently completed
-      );
-
-      // Additionally, if we're completing (not uncompleting), add to completed list
-      if (!isCurrentlyCompleted) {
-        setCompletedProblems((prev) => [
-          ...prev,
-          { ...problem, completed: true },
-        ]);
-      }
-
-      // Show appropriate toast
-      toast(
-        isCurrentlyCompleted
-          ? "Question unmarked as complete!"
-          : "Question marked as complete!",
-      );
-
-      // Make API call
-      await axios.post(
-        `https://leet-daily.netlify.app/api/questions/${id}/complete`,
-      );
-    } catch (err) {
-      console.error("Error toggling complete:", err);
-      toast.error("Failed to update completion status. Refreshing data...");
-      await fetchAllData(); // Refresh all data to ensure consistency
-    } finally {
-      setPendingUpdates((prev) => {
-        const updated = new Set(prev);
-        updated.delete(id);
-        return updated;
-      });
-    }
-  };
+    },
+    [],
+  );
 
   const getCurrentProblems = () => {
     const problems = (() => {
