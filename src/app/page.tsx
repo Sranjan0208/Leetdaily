@@ -117,8 +117,8 @@ export default function Home() {
           </p>
 
           <div className="flex flex-wrap justify-center gap-4">
-            <Link
-              href="/auth/signin"
+            <button
+              onClick={() => (window.location.href = "/auth/signin")}
               className="group relative inline-block cursor-pointer rounded-xl bg-gray-800 p-px font-semibold leading-6 text-white shadow-2xl shadow-purple-900/20 transition-all duration-300 ease-in-out hover:scale-105 hover:shadow-purple-900/40 active:scale-95"
             >
               <span className="absolute inset-0 rounded-xl bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 opacity-0 transition-opacity duration-500 group-hover:opacity-100"></span>
@@ -128,7 +128,7 @@ export default function Home() {
                   <Sparkles className="h-5 w-5" />
                 </div>
               </span>
-            </Link>
+            </button>
           </div>
         </div>
       </div>
