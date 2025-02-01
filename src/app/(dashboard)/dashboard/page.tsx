@@ -85,8 +85,8 @@ const Dashboard = () => {
   // Batch Operations Queue
   const [pendingOperations, setPendingOperations] = useState<BatchOperation[]>(
     [],
-  );
-  const [processingBatch, setProcessingBatch] = useState(false);
+  ); // Storing queue operations
+  const [processingBatch, setProcessingBatch] = useState(false); // Prevents multiple batches from running simultaneously.
 
   useEffect(() => {
     fetchAllData();
