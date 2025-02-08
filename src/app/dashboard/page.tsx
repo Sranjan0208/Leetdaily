@@ -16,7 +16,7 @@ import {
 import { getApiUrl } from "@/lib/config";
 
 const ITEMS_PER_PAGE = 6;
-const BATCH_INTERVAL = 1000;
+const BATCH_INTERVAL = 2500;
 
 type BatchOperation = {
   id: string;
@@ -85,8 +85,8 @@ const Dashboard = () => {
   // Batch Operations Queue
   const [pendingOperations, setPendingOperations] = useState<BatchOperation[]>(
     [],
-  );
-  const [processingBatch, setProcessingBatch] = useState(false);
+  ); // Storing queue operations
+  const [processingBatch, setProcessingBatch] = useState(false); // Prevents multiple batches from running simultaneously.
 
   useEffect(() => {
     fetchAllData();
