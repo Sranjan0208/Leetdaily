@@ -1,36 +1,82 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# LeetDaily
 
-## Getting Started
+LeetDaily is a productivity-focused app designed to help users improve their problem-solving skills by sending a curated set of **LeetCode** questions daily. It also includes an **AI tutor** that assists with computer science topics by evaluating user-submitted answers and providing detailed feedback.
 
-First, run the development server:
+## 🚀 Features
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+### 📌 LeetCode Question Manager
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+- Get **n number of LeetCode questions** based on difficulty every day.
+- Solve the problems directly from the app.
+- **Star** questions to revisit later.
+- **Mark questions as complete** to track progress.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### 🎓 AI Tutor
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- Provides AI-generated questions on the following topics:
+  - **DBMS**
+  - **Operating Systems (OS)**
+  - **Computer Networking**
+  - **JavaScript (JS)**
+  - **Node.js**
+- Users can submit answers, and the AI tutor will provide **detailed feedback** to help improve understanding.
 
-## Learn More
+## 🛠️ Tech Stack
 
-To learn more about Next.js, take a look at the following resources:
+- **Frontend:** Next.js, TypeScript, ShadCN
+- **Backend:** Node.js, PostgreSQL, Drizzle ORM
+- **Authentication:** Auth.js
+- **AI Integration:** Google Gemini API
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## 📦 Installation
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+1. Clone the repository:
 
-## Deploy on Vercel
+   ```sh
+   git clone https://github.com/Sranjan0208/Leetdaily
+   cd leetdaily
+   ```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+2. Install dependencies:
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+   ```sh
+   pnpm
+   ```
+
+3. Set up environment variables in a `.env` file:
+
+   ```env
+   DATABASE_URL=your_postgresql_database_url
+   NEXTAUTH_SECRET=your_secret_key
+   NEXTAUTH_URL=http://localhost:3000
+   GOOGLE_GEMINI_API_KEY=your_gemini_api_key
+   ```
+
+4. Run database migrations:
+
+   ```sh
+   pnpm db:migrate
+   ```
+
+5. Start the development server:
+   ```sh
+   pnpm dev
+   ```
+
+## 🤝 Contributing
+
+Contributions are welcome! Feel free to fork this repository, open issues, or submit pull requests to improve LeetDaily.
+
+## 📜 License
+
+This project is licensed under the MIT License. See the `LICENSE` file for details.
+
+---
+
+### 🔗 Connect with Us
+
+- GitHub: [Sranjan0208](https://github.com/Sranjan0208)
+- Twitter: [@SujalRanjan](https://x.com/SujalRa81842273)
+- Email: sranjan0208@gmail.com
+
+Happy coding! 🚀

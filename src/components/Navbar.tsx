@@ -17,7 +17,6 @@ import {
 export function Navbar() {
   const { data: session, status } = useSession();
   const isAuthenticated = status === "authenticated";
-
   const pathname = usePathname();
   const isDashboard = pathname === "/dashboard";
 
@@ -45,6 +44,27 @@ export function Navbar() {
           <div className="flex items-center space-x-4">
             {isAuthenticated ? (
               <>
+                {/* AI Tutor Button */}
+                <Link
+                  href={
+                    pathname === "/dashboard/tutor"
+                      ? "/dashboard"
+                      : "/dashboard/tutor"
+                  }
+                  className="group relative inline-flex items-center rounded-xl bg-gray-800 p-px font-medium text-white transition-all duration-300 hover:scale-105"
+                >
+                  <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+                  <span className="relative flex items-center space-x-2 rounded-xl bg-gray-900 px-4 py-2 text-sm transition-colors group-hover:bg-gray-900/50">
+                    <Sparkles className="h-4 w-4 text-yellow-300" />
+                    <span>
+                      {pathname === "/dashboard/tutor"
+                        ? "Dashboard"
+                        : "Go to AI Tutor"}
+                    </span>
+                  </span>
+                </Link>
+
+                {/* User Profile Dropdown */}
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <button className="group relative focus:outline-none">
