@@ -191,10 +191,34 @@ const Dashboard = () => {
   const refreshQuestions = async () => {
     setRefreshing(true);
     try {
+      const timestamp = new Date().getTime();
+      const randomString = Math.random().toString(36).substring(7);
+
       const response = await axios.get<{
         success: boolean;
         dailyQuestions: Problem[];
-      }>(getApiUrl("/questions/daily-questions?refresh=true"));
+      }>(
+        getApiUrl(
+          `/questions/daily-questions?refresh=true&t=${timestamp}&nonce=${randomString}`,
+        ),
+        {
+          headers: {
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            Pragma: "no-cache",
+            Expires: "0",
+            // Force Fresh Data
+            "If-None-Match": "",
+            "If-Modified-Since": "",
+          },
+          // Disable axios caching
+          withCredentials: false,
+          timeout: 30000,
+          // Prevent Browser Caching
+          params: {
+            _: timestamp,
+          },
+        },
+      );
 
       if (!response.data.success || !response.data.dailyQuestions) {
         throw new Error("Failed to refresh questions");

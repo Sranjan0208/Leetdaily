@@ -31,43 +31,57 @@ export async function GET(request: Request) {
           userId: userId,
           completedQuestions: [],
           starredQuestions: [],
-          lastUpdated: new Date(), // Set the lastUpdated to now.
+          lastUpdated: new Date(),
         })
-        .returning(); // Use `.returning()` to get the full inserted record.
+        .returning();
 
-      userProgressData = newProgress[0]; // Assign the returned record.
+      userProgressData = newProgress[0];
     }
 
-    // Ensure completedQuestions and starredQuestions are arrays, not null.
     userProgressData.completedQuestions =
       userProgressData.completedQuestions || [];
     userProgressData.starredQuestions = userProgressData.starredQuestions || [];
 
-    // If not refreshing, try to get existing questions first
-    if (!shouldRefresh) {
-      const dailyRecord = await db
+    // Get existing daily questions record
+    const dailyRecord = await db
+      .select()
+      .from(dailyQuestions)
+      .where(eq(dailyQuestions.userId, userId))
+      .limit(1)
+      .then((res) => res[0]);
+
+    // Check if we need to refresh based on time or explicit refresh request
+    const now = new Date();
+    const shouldGetNewQuestions =
+      shouldRefresh ||
+      !dailyRecord?.lastUpdated ||
+      !dailyRecord?.questions?.length ||
+      isStale(dailyRecord.lastUpdated);
+
+    if (
+      !shouldGetNewQuestions &&
+      dailyRecord &&
+      dailyRecord.questions &&
+      dailyRecord.questions.length > 0
+    ) {
+      const dailyQuestionDetails = await db
         .select()
-        .from(dailyQuestions)
-        .where(eq(dailyQuestions.userId, userId))
-        .limit(1)
-        .then((res) => res[0]);
+        .from(questions)
+        .where(inArray(questions.id, dailyRecord.questions));
 
-      if (
-        dailyRecord &&
-        Array.isArray(dailyRecord.questions) &&
-        dailyRecord.questions.length > 0
-      ) {
-        const dailyQuestionDetails = await db
-          .select()
-          .from(questions)
-          .where(inArray(questions.id, dailyRecord.questions));
+      if (dailyQuestionDetails.length > 0) {
+        const response = NextResponse.json({
+          success: true,
+          dailyQuestions: dailyQuestionDetails,
+          refreshedAt: dailyRecord.lastUpdated,
+        });
 
-        if (dailyQuestionDetails.length > 0) {
-          return NextResponse.json({
-            success: true,
-            dailyQuestions: dailyQuestionDetails,
-          });
-        }
+        // Set cache control headers
+        response.headers.set("Cache-Control", "no-store, must-revalidate");
+        response.headers.set("Pragma", "no-cache");
+        response.headers.set("Expires", "0");
+
+        return response;
       }
     }
 
@@ -119,14 +133,6 @@ export async function GET(request: Request) {
     }
 
     // Update or insert the new questions
-    const now = new Date();
-    const dailyRecord = await db
-      .select()
-      .from(dailyQuestions)
-      .where(eq(dailyQuestions.userId, userId))
-      .limit(1)
-      .then((res) => res[0]);
-
     if (dailyRecord) {
       await db
         .update(dailyQuestions)
@@ -142,12 +148,19 @@ export async function GET(request: Request) {
         lastUpdated: now,
       });
     }
-    console.log(newDailyQuestions);
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       dailyQuestions: newDailyQuestions,
+      refreshedAt: now,
     });
+
+    // Set cache control headers
+    response.headers.set("Cache-Control", "no-store, must-revalidate");
+    response.headers.set("Pragma", "no-cache");
+    response.headers.set("Expires", "0");
+
+    return response;
   } catch (err) {
     console.error("Error fetching daily questions:", err);
     return NextResponse.json(
@@ -155,4 +168,12 @@ export async function GET(request: Request) {
       { status: 500 },
     );
   }
+}
+
+// Helper function to check if the last update is stale (e.g., older than 24 hours)
+function isStale(lastUpdated: Date): boolean {
+  const now = new Date();
+  const hours =
+    Math.abs(now.getTime() - new Date(lastUpdated).getTime()) / 36e5;
+  return hours >= 24;
 }
