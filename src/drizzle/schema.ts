@@ -120,6 +120,9 @@ export const userProgress = pgTable("userprogress", {
 
   starredQuestions: text("starred_questions").array(),
   lastUpdated: timestamp("last_updated", { mode: "date" }).defaultNow(),
+  easyCount: integer("easy_count").default(3),
+  mediumCount: integer("medium_count").default(2),
+  hardCount: integer("hard_count").default(1),
 });
 
 export const dailyQuestions = pgTable("dailyQuestion", {

@@ -42,6 +42,11 @@ export async function GET(request: Request) {
       userProgressData.completedQuestions || [];
     userProgressData.starredQuestions = userProgressData.starredQuestions || [];
 
+    // 0 is considered falsy value so when I use userProgressData.easyCount || 3, 0 is treated as falsy and easyCount was storing 3 instead of 0
+    const easyCount = userProgressData.easyCount ?? 3;
+    const mediumCount = userProgressData.mediumCount ?? 2;
+    const hardCount = userProgressData.hardCount ?? 1;
+
     // Get existing daily questions record
     const dailyRecord = await db
       .select()
@@ -90,7 +95,8 @@ export async function GET(request: Request) {
     ].filter(Boolean);
 
     // Create difficulty filter function
-    const createDifficultyFilter = (difficulty: string) => {
+    const createDifficultyFilter = (difficulty: string, count: number) => {
+      if (count === 0) return undefined; // Return undefined instead of false as where clause doesn't expect false
       const baseFilter = eq(questions.difficulty, difficulty);
       return excludedIds.length > 0
         ? and(baseFilter, not(inArray(questions.id, excludedIds)))
@@ -99,24 +105,30 @@ export async function GET(request: Request) {
 
     // Fetch new random questions for each difficulty
     const [easyQuestions, mediumQuestions, hardQuestions] = await Promise.all([
-      db
-        .select()
-        .from(questions)
-        .where(createDifficultyFilter("Easy"))
-        .orderBy(sql`RANDOM()`)
-        .limit(3),
-      db
-        .select()
-        .from(questions)
-        .where(createDifficultyFilter("Medium"))
-        .orderBy(sql`RANDOM()`)
-        .limit(2),
-      db
-        .select()
-        .from(questions)
-        .where(createDifficultyFilter("Hard"))
-        .orderBy(sql`RANDOM()`)
-        .limit(1),
+      easyCount > 0
+        ? db
+            .select()
+            .from(questions)
+            .where(createDifficultyFilter("Easy", easyCount)!)
+            .orderBy(sql`RANDOM()`)
+            .limit(easyCount)
+        : Promise.resolve([]),
+      mediumCount > 0
+        ? db
+            .select()
+            .from(questions)
+            .where(createDifficultyFilter("Medium", mediumCount)!)
+            .orderBy(sql`RANDOM()`)
+            .limit(mediumCount)
+        : Promise.resolve([]),
+      hardCount > 0
+        ? db
+            .select()
+            .from(questions)
+            .where(createDifficultyFilter("Hard", hardCount)!)
+            .orderBy(sql`RANDOM()`)
+            .limit(hardCount)
+        : Promise.resolve([]),
     ]);
 
     const newDailyQuestions = [

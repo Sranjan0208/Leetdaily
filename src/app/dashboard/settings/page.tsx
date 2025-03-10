@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Card,
   CardContent,
@@ -42,11 +42,41 @@ import {
 } from "lucide-react";
 import { useSession } from "next-auth/react";
 import Image from "next/image";
+import axios from "axios";
+import { getApiUrl } from "@/lib/config";
 
 const Settings = () => {
   const { data: session } = useSession();
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState(session?.user?.image || "");
+  const [easyCount, setEasyCount] = useState("3");
+  const [mediumCount, setMediumCount] = useState("2");
+  const [hardCount, setHardCount] = useState("1");
+  const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    const fetchUserPreference = async () => {
+      if (!session?.user?.id) return;
+
+      try {
+        const response = await axios.get(
+          getApiUrl("/questions/userpreference"),
+        );
+
+        if (response.data?.preferences) {
+          const { easyCount, mediumCount, hardCount } =
+            response.data.preferences;
+          setEasyCount(easyCount?.toString() || "3");
+          setMediumCount(mediumCount?.toString() || "2");
+          setHardCount(hardCount?.toString() || "1");
+        }
+      } catch (error) {
+        console.error("Error fetching user preferences:", error);
+      }
+    };
+
+    fetchUserPreference();
+  }, [session?.user?.id]);
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -56,8 +86,34 @@ const Settings = () => {
     }
   };
 
-  const handleSave = () => {
-    toast.success("Settings saved successfully!");
+  const handleSave = async () => {
+    if (!session?.user?.id) {
+      toast.error("You must be logged in to save settings");
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      // Save profile information
+      const formData = new FormData();
+      if (imageFile) {
+        formData.append("profileImage", imageFile);
+      }
+      // Save question preferences
+      await axios.post(getApiUrl("/questions/userpreference"), {
+        easyCount: parseInt(easyCount),
+        mediumCount: parseInt(mediumCount),
+        hardCount: parseInt(hardCount),
+      });
+
+      toast.success("Settings saved successfully!");
+    } catch (error) {
+      console.error("Error saving settings:", error);
+      toast.error("Failed to save settings");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleDeleteAccount = () => {
@@ -66,7 +122,7 @@ const Settings = () => {
   };
 
   return (
-    <div className="max-w-8xl min-h-full w-full bg-gray-900 px-6 py-12 text-white">
+    <div className="max-w-8xl h-screen min-h-screen w-full bg-gray-900 px-6 py-12 text-white">
       <div className="mb-6">
         <h1 className="mb-4 text-4xl font-extrabold">Settings</h1>
         <p className="text-gray-400">
@@ -226,14 +282,17 @@ const Settings = () => {
             <CardHeader className="pb-4">
               <CardTitle className="flex items-center gap-2">
                 <BarChart className="h-5 w-5" />
-                Difficulty
+                Daily Questions
               </CardTitle>
+              <CardDescription className="text-gray-400">
+                Select how many questions of each difficulty you want daily
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <Label className="text-sm">Easy</Label>
-                  <Select defaultValue="3">
+                  <Select value={easyCount} onValueChange={setEasyCount}>
                     <SelectTrigger className="h-9 border-gray-700 bg-gray-800">
                       <SelectValue />
                     </SelectTrigger>
@@ -248,7 +307,7 @@ const Settings = () => {
                 </div>
                 <div className="space-y-2">
                   <Label className="text-sm">Medium</Label>
-                  <Select defaultValue="2">
+                  <Select value={mediumCount} onValueChange={setMediumCount}>
                     <SelectTrigger className="h-9 border-gray-700 bg-gray-800">
                       <SelectValue />
                     </SelectTrigger>
@@ -263,7 +322,7 @@ const Settings = () => {
                 </div>
                 <div className="space-y-2">
                   <Label className="text-sm">Hard</Label>
-                  <Select defaultValue="1">
+                  <Select value={hardCount} onValueChange={setHardCount}>
                     <SelectTrigger className="h-9 border-gray-700 bg-gray-800">
                       <SelectValue />
                     </SelectTrigger>
@@ -325,8 +384,9 @@ const Settings = () => {
           <Button
             onClick={handleSave}
             className="bg-gradient-to-r from-gray-800 to-black font-semibold text-green-600 hover:from-black hover:to-gray-900 hover:text-green-400"
+            disabled={isLoading}
           >
-            Save Changes
+            {isLoading ? "Saving..." : "Save Changes"}
           </Button>
         </div>
       </div>
